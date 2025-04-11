@@ -24,9 +24,7 @@ public class BowlingBall : MonoBehaviour
     }
 
     private void OnBallReleased(SelectExitEventArgs args)
-    {
-        Debug.Log("볼링 공이 놓아졌습니다!");
-
+    {       
         // 공이 놓였을 때 속도와 회전 설정
         Vector3 forwardDirection = transform.forward; // 공의 방향
         ballRigidbody.velocity = forwardDirection * rollSpeed; // 굴러가는 속도 설정
@@ -37,9 +35,6 @@ public class BowlingBall : MonoBehaviour
         {
             gameManager.RollBall(); // BowlingGameManager의 RollBall 호출
         }
-        else
-        {
-            Debug.LogWarning("BowlingGameManager를 찾을 수 없습니다!");
-        }
+        
     }
 }

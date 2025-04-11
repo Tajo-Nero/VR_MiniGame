@@ -1,22 +1,21 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class BowlingPinManager : MonoBehaviour
 {
+    public event Action<int> OnPinsUpdated; // 쓰러진 핀 개수가 변경될 때 실행될 이벤트
+
     private int fallenPinCount = 0; // 쓰러진 핀 개수
     private HashSet<Transform> fallenPins = new HashSet<Transform>(); // 쓰러진 핀 추적용
     private List<Vector3> initialPositions = new List<Vector3>(); // 핀 초기 위치
     private List<Quaternion> initialRotations = new List<Quaternion>(); // 핀 초기 회전값
 
-    public int FallenPinCount
-    {
-        get { return fallenPinCount; } // 쓰러진 핀 개수 반환
-    }
+    public int FallenPinCount => fallenPinCount;
 
     private void Start()
     {
-        // 모든 핀의 초기 위치와 회전을 저장
         foreach (Transform pin in transform)
         {
             initialPositions.Add(pin.position);
@@ -30,42 +29,48 @@ public class BowlingPinManager : MonoBehaviour
         {
             if (!fallenPins.Contains(pin) && IsPinFallen(pin))
             {
-                fallenPins.Add(pin); // 새로운 쓰러진 핀 기록
+                fallenPins.Add(pin);
                 fallenPinCount++;
-                StartCoroutine(DeactivatePinAfterDelay(pin.gameObject)); // 5초 후 비활성화
-                Debug.Log($"{pin.name} 쓰러짐 감지! 현재 쓰러진 핀 개수: {fallenPinCount}");
+
+                Debug.Log($"쓰러진 핀 개수 업데이트: {fallenPinCount}");
+
+                // 이벤트 호출하여 게임 매니저에 변경된 핀 개수를 알림
+                OnPinsUpdated?.Invoke(fallenPinCount);
+                StartCoroutine(DeactivatePinAfterDelay(pin.gameObject));
             }
         }
     }
 
     private bool IsPinFallen(Transform pin)
     {
-        // 핀이 Z축 기준으로 기울어진 각도를 판단
-        return pin.rotation.eulerAngles.z > 45f;
+        float angle = Vector3.Angle(pin.up, Vector3.up);
+
+        return angle > 30f; // 30도 이상 기울어졌을 때 쓰러진 것으로 판단
     }
 
     private IEnumerator DeactivatePinAfterDelay(GameObject pin)
     {
-        yield return new WaitForSeconds(5f); // 5초 대기
-        pin.SetActive(false); // 핀 비활성화
+        yield return new WaitForSeconds(2f);
+        pin.SetActive(false);
         Debug.Log($"{pin.name} 비활성화됨!");
     }
 
     public void ResetPins()
     {
-        // 핀 위치와 회전을 초기 상태로 복원하고 다시 활성화
         int index = 0;
         foreach (Transform pin in transform)
         {
             pin.position = initialPositions[index];
             pin.rotation = initialRotations[index];
-            pin.gameObject.SetActive(true); // 비활성화된 핀을 다시 활성화
+            pin.gameObject.SetActive(true);
             index++;
         }
 
-        // 상태 초기화
+        // 쓰러진 핀 초기화 및 이벤트 호출
         fallenPinCount = 0;
         fallenPins.Clear();
+        OnPinsUpdated?.Invoke(fallenPinCount);
+
         Debug.Log("핀 초기화 완료!");
     }
 }

@@ -1,46 +1,53 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BowlingGameManager : MonoBehaviour
 {
-    public BowlingPinManager pinManager; // 핀 매니저 참조
-    private int currentTurn = 1;         // 현재 턴
-    private int rollCount = 0;           // 현재 공 굴린 횟수 (1턴당 최대 2번)
-    private int totalScore = 0;          // 게임 총 점수
+    public BowlingPinManager pinManager;
+    public GameObject bowlingBall;
+    public Transform ballStartPosition;
 
-    private void Start()
+    public int currentTurn = 1;
+    public int currentRound = 1;
+    private int rollCount = 0;
+    private int totalScore = 0;
+    private List<int> turnScores = new List<int>();
+
+    private void Awake()
     {
-        StartTurn(); // 첫 턴 시작
+        pinManager.OnPinsUpdated += UpdatePinCount;
     }
 
     private void StartTurn()
     {
-        rollCount = 0; // 새로운 턴 시작 시 굴린 횟수 초기화
-        Debug.Log($"턴 {currentTurn} 시작!");
+        rollCount = 0;
+        Debug.Log($"라운드 {currentRound}, 턴 {currentTurn} 시작!");
     }
 
     public void RollBall()
     {
         rollCount++;
+        int fallenPins = pinManager.FallenPinCount;
 
-        int pinsKnockedDown = pinManager.FallenPinCount; // 쓰러진 핀 개수 가져오기
-        Debug.Log($"턴 {currentTurn}, 공 {rollCount}: {pinsKnockedDown} 핀 쓰러짐!");
+        Debug.Log($"턴 {currentTurn}, 공 {rollCount}: {fallenPins} 핀 쓰러짐!");
 
-        if (rollCount == 1 && pinsKnockedDown == 10) // 스트라이크
+        // 첫 번째 굴림에서도 점수 기록하도록 수정
+        RecordScore(fallenPins);
+
+        if (rollCount == 1 && fallenPins == 10)
         {
             Debug.Log("스트라이크!");
-            RecordScore(10);
+            RecordScore(GetBonus(2));
             EndTurn();
         }
         else if (rollCount == 2)
         {
-            if (pinManager.FallenPinCount == 10) // 스페어
+            int previousScore = (currentTurn - 1 < turnScores.Count) ? turnScores[currentTurn - 1] : 0;
+
+            if (fallenPins + previousScore == 10)
             {
                 Debug.Log("스페어!");
-                RecordScore(10);
-            }
-            else
-            {
-                RecordScore(pinManager.FallenPinCount); // 단순 점수 기록
+                RecordScore(GetBonus(1));
             }
 
             EndTurn();
@@ -50,18 +57,28 @@ public class BowlingGameManager : MonoBehaviour
     private void RecordScore(int score)
     {
         totalScore += score;
-        Debug.Log($"턴 {currentTurn} 점수 기록: {score}. 총 점수: {totalScore}");
+        turnScores.Add(score);
+        Debug.Log($"턴 {currentTurn} 점수 기록: {score}, 총 점수: {totalScore}");
     }
 
-    private void EndTurn()
+    public void EndTurn()
     {
-        // 턴 종료 후 핀 초기화
+        Debug.Log($"턴 {currentTurn} 종료!");
         pinManager.ResetPins();
 
-        currentTurn++; // 다음 턴으로 이동
-        if (currentTurn <= 10) // 최대 10턴
+        currentTurn++;
+
+        if (currentTurn > 2)
         {
-            StartTurn(); // 새로운 턴 시작
+            currentRound++;
+            currentTurn = 1;
+            ResetBallPosition();
+            Debug.Log($"새로운 라운드 시작! 현재 라운드: {currentRound}");
+        }
+
+        if (currentRound <= 5)
+        {
+            StartTurn();
         }
         else
         {
@@ -69,8 +86,42 @@ public class BowlingGameManager : MonoBehaviour
         }
     }
 
+    private void ResetBallPosition()
+    {
+        if (bowlingBall != null && ballStartPosition != null)
+        {
+            bowlingBall.transform.position = ballStartPosition.position;
+            bowlingBall.GetComponent<Rigidbody>().velocity = Vector3.zero;
+            bowlingBall.GetComponent<Rigidbody>().angularVelocity = Vector3.zero;
+            Debug.Log("볼링 공 위치 초기화 완료!");
+        }
+    }
+
+    private int GetBonus(int rollsToConsider)
+    {
+        int bonusScore = 0;
+        int currentIndex = turnScores.Count - rollsToConsider;
+
+        for (int i = 0; i < rollsToConsider; i++)
+        {
+            if (currentIndex >= 0 && currentIndex < turnScores.Count)
+            {
+                bonusScore += turnScores[currentIndex];
+            }
+            currentIndex++;
+        }
+
+        return bonusScore;
+    }
+
+    private void UpdatePinCount(int newPinCount)
+    {
+        totalScore += newPinCount;
+        Debug.Log($"총 점수 업데이트됨: {totalScore}");
+    }
+
     public int GetTotalScore()
     {
-        return totalScore; // 게임 총 점수 반환
+        return totalScore;
     }
 }
